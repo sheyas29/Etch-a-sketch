@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Etch-a-Sketch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── Reset & Variables ─────────────────────────────────── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #f0ead6;
+        --surface: #ffffff;
+        --ink: #1a1a1a;
+        --ink-muted: #6b6b6b;
+        --accent: #c8ff00;
+        --accent-dk: #8cb200;
+        --border: 3px solid #1a1a1a;
+        --radius: 6px;
+        --grid-sz: 960px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'DM Mono', 'Courier New', monospace;
+      }
+
+      /* ── Layout ────────────────────────────────────────────── */
+      .app {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        padding: 2rem 1rem 3rem;
+      }
+
+      /* ── Header ────────────────────────────────────────────── */
+      header {
+        width: var(--grid-sz);
+        max-width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .brand {
+        flex-shrink: 0;
+      }
+
+      .brand h1 {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 3.5rem;
+        line-height: 1;
+        letter-spacing: 0.06em;
+        color: var(--ink);
+      }
+
+      .brand .tagline {
+        font-size: 0.65rem;
+        letter-spacing: 0.3em;
+        color: var(--ink-muted);
+        text-transform: uppercase;
+        margin-top: 2px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.6rem;
+        margin-left: auto;
+      }
+
+      .grid-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        letter-spacing: 0.15em;
+        color: var(--ink-muted);
+        min-width: 4.5rem;
+        text-align: right;
+      }
+
+      /* ── Buttons ───────────────────────────────────────────── */
+      .btn {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        padding: 0.5rem 1rem;
+        border: 2px solid var(--ink);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition:
+          background 0.12s,
+          transform 0.08s,
+          box-shadow 0.12s;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: var(--ink);
+      }
+      .btn-primary:hover {
+        background: var(--accent-dk);
+        box-shadow: 3px 3px 0 var(--ink);
+        transform: translate(-1px, -1px);
+      }
+      .btn-primary:active {
+        transform: translate(1px, 1px);
+        box-shadow: none;
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--ink);
+      }
+      .btn-ghost:hover {
+        background: var(--ink);
+        color: var(--bg);
+      }
+
+      /* ── Toggle switches ───────────────────────────────────── */
+      .toggle-wrap {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        cursor: pointer;
+        user-select: none;
+      }
+      .toggle-wrap input {
+        display: none;
+      }
+
+      .toggle-track {
+        width: 34px;
+        height: 18px;
+        border: 2px solid var(--ink);
+        border-radius: 9px;
+        background: var(--surface);
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.15s;
+      }
+      .toggle-wrap input:checked ~ .toggle-track {
+        background: var(--accent);
+      }
+
+      .toggle-thumb {
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--ink);
+        transition: left 0.15s;
+      }
+      .toggle-wrap input:checked ~ .toggle-track .toggle-thumb {
+        left: 17px;
+      }
+
+      .toggle-text {
+        font-size: 0.65rem;
+        letter-spacing: 0.2em;
+        color: var(--ink-muted);
+      }
+
+      /* ── Canvas wrapper ────────────────────────────────────── */
+      .canvas-wrap {
+        border: var(--border);
+        border-radius: var(--radius);
+        box-shadow: 6px 6px 0 var(--ink);
+        overflow: hidden;
+        background: var(--surface);
+        /* Prevents any stray cursor interaction */
+        line-height: 0;
+      }
+
+      /* ── The grid container ─────────────────────────────────
+       Flexbox layout: squares wrap into rows.
+       Width is fixed at 960px; JS sizes each square to fill it.
+    ────────────────────────────────────────────────────────── */
+      #grid-container {
+        width: var(--grid-sz);
+        max-width: 960px;
+        display: flex;
+        flex-wrap: wrap;
+        /* No gap — borders control visual lines */
+      }
+
+      /* ── Individual squares ────────────────────────────────── */
+      .square {
+        /* Width/height set by JS; border-box keeps size exact */
+        flex-shrink: 0;
+        box-sizing: border-box;
+        border-right: 1px solid rgba(0, 0, 0, 0.07);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+        background: var(--surface);
+        transition: background-color 0.06s ease;
+        cursor: crosshair;
+      }
+
+      /* ── Footer note ────────────────────────────────────────── */
+      .footnote {
+        margin-top: 1.25rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.2em;
+        color: var(--ink-muted);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="brand">
+          <h1>ETCH</h1>
+          <p class="tagline">a sketch pad</p>
+        </div>
+        <div class="controls">
+          <span class="grid-label" id="grid-info">16 × 16</span>
+
+          <button class="btn btn-primary" id="resize-btn">↔ NEW GRID</button>
+          <button class="btn btn-ghost" id="clear-btn">✕ CLEAR</button>
+
+          <label class="toggle-wrap" title="Randomise color on each stroke">
+            <input type="checkbox" id="rainbow-toggle" checked />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">RAINBOW</span>
+          </label>
+
+          <label
+            class="toggle-wrap"
+            title="Darken square by 10% each pass (10 hits = black)"
+          >
+            <input type="checkbox" id="darken-toggle" checked />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="toggle-text">DARKEN</span>
+          </label>
+        </div>
+      </header>
+
+      <!-- The grid squares are injected here by JavaScript -->
+      <div class="canvas-wrap">
+        <div id="grid-container"></div>
+      </div>
+
+      <p class="footnote">
+        HOLD MOUSE BUTTON + DRAG TO DRAW &nbsp;·&nbsp; MAX 100 × 100
+      </p>
+    </div>
+
+    <script>
+      /* ─────────────────────────────────────────────────────────
+       Etch-a-Sketch — script.js
+       ───────────────────────────────────────────────────────── */
+
+      const container = document.getElementById('grid-container');
+      const gridInfo = document.getElementById('grid-info');
+      const resizeBtn = document.getElementById('resize-btn');
+      const clearBtn = document.getElementById('clear-btn');
+      const rainbowToggle = document.getElementById('rainbow-toggle');
+      const darkenToggle = document.getElementById('darken-toggle');
+
+      const GRID_PX = 960; // total canvas size in pixels
+      const MAX_SIZE = 100; // maximum allowed grid dimension
+      let currentSize = 16;
+      let isDrawing = false; // true while mouse button is held down
+
+      /* ── Mouse-state tracking (draw only while held) ── */
+      document.addEventListener('mousedown', () => {
+        isDrawing = true;
+      });
+      document.addEventListener('mouseup', () => {
+        isDrawing = false;
+      });
+
+      /* ── Random RGB helper ─────────────────────────── */
+      function randomRGB() {
+        return [
+          Math.floor(Math.random() * 256),
+          Math.floor(Math.random() * 256),
+          Math.floor(Math.random() * 256),
+        ];
+      }
+
+      /* ── Paint one square ──────────────────────────── */
+      function paintSquare(square) {
+        const rainbowOn = rainbowToggle.checked;
+        const darkenOn = darkenToggle.checked;
+
+        /* Increment hit counter, capped at 10 */
+        let hits = parseInt(square.dataset.hits, 10);
+        if (hits < 10) hits++;
+        square.dataset.hits = hits;
+
+        /* Choose base colour */
+        let [r, g, b] = rainbowOn ? randomRGB() : [30, 30, 30];
+
+        /* Apply progressive darkening: hit 1 = 90% brightness, hit 10 = 0% (black) */
+        if (darkenOn) {
+          const brightness = Math.max(0, 1 - hits * 0.1);
+          r = Math.round(r * brightness);
+          g = Math.round(g * brightness);
+          b = Math.round(b * brightness);
+        }
+
+        square.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+      }
+
+      /* ── Build the grid ────────────────────────────── */
+      function createGrid(size) {
+        /* Clear previous grid */
+        container.innerHTML = '';
+
+        const squarePx = GRID_PX / size;
+
+        /* Create size × size squares via JavaScript */
+        for (let i = 0; i < size * size; i++) {
+          const square = document.createElement('div');
+          square.classList.add('square');
+          square.style.width = `${squarePx}px`;
+          square.style.height = `${squarePx}px`;
+          square.dataset.hits = '0';
+
+          /*
+           * mousedown  → start painting immediately on click
+           * mouseenter → continue painting while dragging
+           * Both check `isDrawing` so hovering without clicking leaves no mark.
+           */
+          square.addEventListener('mousedown', (e) => {
+            e.preventDefault(); /* prevent drag-selecting */
+            paintSquare(square);
+          });
+          square.addEventListener('mouseenter', () => {
+            if (isDrawing) paintSquare(square);
+          });
+
+          container.appendChild(square);
+        }
+
+        gridInfo.textContent = `${size} × ${size}`;
+        currentSize = size;
+      }
+
+      /* ── Resize button ─────────────────────────────── */
+      resizeBtn.addEventListener('click', () => {
+        const raw = prompt(
+          `How many squares per side? (1 – ${MAX_SIZE})`,
+          currentSize
+        );
+        if (raw === null) return; /* user cancelled */
+        const size = parseInt(raw, 10);
+        if (isNaN(size) || size < 1) {
+          alert('Please enter a number between 1 and 100.');
+          return;
+        }
+        createGrid(Math.min(MAX_SIZE, size));
+      });
+
+      /* ── Clear button ──────────────────────────────── */
+      clearBtn.addEventListener('click', () => createGrid(currentSize));
+
+      /* ── Initialise with default 16 × 16 grid ─────── */
+      createGrid(16);
+    </script>
+  </body>
+</html>
